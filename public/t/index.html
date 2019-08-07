@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Todo List</title>
+    <link rel="stylesheet" href="assets/css/base.css">
+    <link rel="stylesheet" href="assets/css/index.css">
+    <link rel="stylesheet" href="../js/nprogress/nprogress.css">
+</head>
+
+<body>
+    <section class="todoapp">
+        <header class="header">
+            <h1>todos</h1>
+            <input type="text" class="new-todo" placeholder="What needs to be done?" autofocus id="task">
+        </header>
+        <!-- This section should be hidden by default and shown when there are todos -->
+        <section class="main">
+            <input class="toggle-all" type="checkbox">
+            <ul class="todo-list" id="todo-list"></ul>
+        </section>
+        <!-- This footer should hidden by default and shown when there are todos -->
+        <footer class="footer">
+            <!-- This should be `0 items left` by default -->
+            <span class="todo-count"><strong id="count">0</strong> item left</span>
+            <!-- Remove this if you don't implement routing -->
+            <ul class="filters">
+                <li>
+                    <a class="selected" href="javascript:;">All</a>
+                </li>
+                <li>
+                    <a href="javascript:;">Active</a>
+                </li>
+                <li>
+                    <a href="javascript:;">Completed</a>
+                </li>
+            </ul>
+            <!-- Hidden if no completed items are left ↓ -->
+            <button class="clear-completed">Clear completed</button>
+        </footer>
+    </section>
+    <script src="../js/jquery.min.js"></script>
+    <script src="../js/template-web.js"></script>
+    <script src="../js/nprogress/nprogress.js"></script>
+    <!-- 任务列表模板 -->
+    <script type="text/html" id="taskTpl">
+        {{each tasks}}
+        <li class="{{$value.completed?'completed':''}}">
+            <div class="view">
+                <input class="toggle" type="checkbox" {{$value.completed? 'checked' : ''}}>
+                <label>{{$value.title}}</label>
+                <button class="destroy" data-id="{{$value._id}}"></button>
+            </div>
+            <input class="edit">
+        </li>
+        {{/each}}
+    </script>
+    <script type="text/javascript">
+        // 用于存放任务列表的数组
+        var taskAry = [];
+        // 选择任务列表容器
+        var taskBox = $('#todo-list');
+        //获取内容输入框
+        var task = $("#task");
+        // 用来储存为完成任务数量的标签
+        var strong = $("#count");
+        // 向服务器端发送请求 获取已经存在的任务
+        $.ajax({
+            url: '/todo/task',
+            type: 'get',
+            success: function(res) {
+                // 将已存在的任务存储在taskAry变量中
+                taskAry = res;
+                render();
+                calcCount()
+            }
+        });
+        task.on("keyup", function(e) {
+            var keyCode = e.keyCode;
+            var taskName = $(this).val();
+            if (keyCode == 13) {
+                // 判断用户是否在文本框中输入了任务名称
+                if (taskName.trim().length == 0) {
+                    alert("请输入任务名称");
+                    return
+                };
+                if (taskAry.find(item => item.title == taskName)) {
+                    alert("数据已经存在");
+                    return
+                };
+                $.ajax({
+                    url: '/todo/addTask',
+                    type: 'post',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        title: taskName
+                    }),
+                    success: function(res) {
+                        // console.log(res);
+                        taskAry.push(res);
+                        render();
+                        //将input清空
+                        task.val('');
+                        calcCount()
+                    }
+                })
+            }
+        })
+
+        function render() {
+
+            // 拼接字符串 将拼接好的字符串显示在页面中
+            var html = template('taskTpl', {
+                tasks: taskAry
+            });
+            taskBox.html(html);
+        };
+        // 删除功能
+        taskBox.on('click', '.destroy', function() {
+            // 获取被点击按钮的id值
+            var id = $(this).attr('data-id');
+            // console.log(id);
+            // 发ajax
+            $.ajax({
+                url: '/todo/deleteTask',
+                type: 'get',
+                data: {
+                    _id: id
+                },
+                success: function(res) {
+                    // console.log(res);
+                    // 找到对应删除的index
+                    var index = taskAry.findIndex(item => item._id == res._id);
+                    // 删除数组中的元素
+                    taskAry.splice(index, 1);
+                    //渲染页面
+                    render();
+                    calcCount();
+                }
+            })
+
+        });
+        //修改功能
+        taskBox.on("change", ".toggle", function() {
+                //获取复选框checked属性和id值
+                var status = $(this).prop("checked");
+                var id = $(this).siblings("button").attr("data-id");
+                // console.log(status, id);
+                // 发送ajax
+                $.ajax({
+                    url: '/todo/modifyTask',
+                    type: 'post',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        _id: id,
+                        completed: status
+                    }),
+                    success: function(res) {
+                        // console.log(res);
+                        // 更新数组元素中的值
+                        var task1 = taskAry.find(item => item._id == res._id);
+                        // console.log(task1);
+                        task1.completed = res.completed;
+                        render();
+                        calcCount();
+                    }
+                })
+            })
+            // 修改任务
+        taskBox.on('dblclick', 'label', function() {
+            $(this).parents('li').addClass('editing');
+            // 将任务名称显示在文本框中
+            $(this).parent().siblings('input').val($(this).text());
+            $(this).parent().siblings('input').focus();
+        })
+        taskBox.on('blur', '.edit', function() {
+            var newTaskName = $(this).val();
+            var id = $(this).siblings().find('button').attr('data-id');
+            $.ajax({
+                url: '/todo/modifyTask',
+                type: 'post',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    _id: id,
+                    title: newTaskName
+                }),
+                success: function(res) {
+                    // console.log(res);
+                    // 更新数组元素中的值
+                    var task = taskAry.find(item => item._id == id)
+                    task.title = res.title;
+                    render();
+                    calcCount()
+                }
+            })
+        });
+
+        function calcCount() {
+            var count = 0;
+            var newAry = taskAry.filter(item => item.completed == false);
+            count = newAry.length;
+            strong.text(count);
+        }
+    </script>
+</body>
+
+</html>

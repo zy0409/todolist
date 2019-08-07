@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>$.ajax方法基本使用</title>
+</head>
+
+<body>
+    用户名：<input type="text" name="username" id="username"> 年龄：
+    <input type="text" name="age" id="age">
+    <input type="button" value="提交" id="btn">
+    <script src="./js/jquery.min.js"></script>
+    <script>
+        $('#btn').on('click', function() {
+            $.ajax({
+                type: 'post',
+                url: '/getData',
+                data: {
+                    username: $('#username').val().trim(),
+                    age: $('#age').val().trim()
+                },
+                success: function(res) {
+                    console.log(res);
+                }
+            })
+        })
+    </script>
+</body>
+
+</html>

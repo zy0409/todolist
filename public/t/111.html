@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Todo List</title>
+    <link rel="stylesheet" href="assets/css/base.css">
+    <link rel="stylesheet" href="assets/css/index.css">
+    <link rel="stylesheet" href="/js/nprogress/nprogress.css">
+</head>
+
+<body>
+    <section class="todoapp">
+        <header class="header">
+            <h1>todos</h1>
+            <input type="text" class="new-todo" placeholder="What needs to be done?" autofocus id="task">
+        </header>
+        <!-- This section should be hidden by default and shown when there are todos -->
+        <section class="main">
+            <input class="toggle-all" type="checkbox">
+            <ul class="todo-list" id="todo-list"></ul>
+        </section>
+        <!-- This footer should hidden by default and shown when there are todos -->
+        <footer class="footer">
+            <!-- This should be `0 items left` by default -->
+            <span class="todo-count"><strong id="count">0</strong> item left</span>
+            <!-- Remove this if you don't implement routing -->
+            <ul class="filters">
+                <li>
+                    <a class="selected" href="javascript:;">All</a>
+                </li>
+                <li>
+                    <a href="javascript:;">Active</a>
+                </li>
+                <li>
+                    <a href="javascript:;">Completed</a>
+                </li>
+            </ul>
+            <!-- Hidden if no completed items are left ↓ -->
+            <button class="clear-completed">Clear completed</button>
+        </footer>
+    </section>
+    <script src="/js/jquery.min.js"></script>
+    <script src="/js/template-web.js"></script>
+    <script src="/js/nprogress/nprogress.js"></script>
+    <!-- 任务列表模板 -->
+    <script type="text/html" id="taskTpl">
+        {{each tasks}}
+        <li>
+            <div class="view">
+                <input class="toggle" type="checkbox">
+                <label>{{$value.title}}</label>
+                <button class="destroy" data-id="{{$value._id}}"></button>
+            </div>
+            <input class="edit">
+        </li>
+        {{/each}}
+    </script>
+    <script type="text/javascript">
+        // 用于存放任务列表的数组  数据驱动ui界面  DOM操作 对我们的HTML 数组
+        var taskAry = [];
+        // 选择任务列表容器
+        var taskBox = $('#todo-list');
+
+        var task = $('#task');
+        // 向服务器端发送请求 获取已经存在的任务
+
+        $.ajax({
+            url: '/todo/task',
+            type: 'get',
+            success: function(res) {
+                // 将已存在的任务存储在taskAry变量中
+                taskAry = res;
+
+                // 拼接字符串 将拼接好的字符串显示在页面中
+                render();
+            }
+        })
+
+
+        task.on('keyup', function(e) {
+            var keycode = e.keyCode;
+            var taskName = $(this).val();
+            if (keycode == 13) {
+
+                if ($(this).val().trim().length == 0) {
+                    alert("没有填写内容");
+                    return;
+                }
+
+                // 如果这个任务在数组已经存在  
+                if (taskAry.find(item => item.title == taskName)) {
+                    alert("数据已经存在");
+                    return;
+                }
+
+                $.ajax({
+                    type: 'post',
+                    url: '/todo/addTask',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        title: taskName
+                    }),
+                    success: function(res) {
+                        // 返回是刚添加的数据  我们要将所有的数据渲染到页面 
+                        // 如果我们不将数据写到上面的数据中  
+                        taskAry.push(res); // 这个时候数组里面的数组 更新
+                        render();
+                        task.val('');
+                    }
+                })
+
+            }
+        })
+
+
+        function render() {
+            var html = template('taskTpl', {
+                tasks: taskAry
+            });
+            taskBox.html(html);
+        }
+    </script>
+</body>
+
+</html>
